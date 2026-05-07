@@ -4,14 +4,31 @@ import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'http://localhost:5001/api';
 
 const ChatInterface = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isConnected, setIsConnected] = useState(null);
   const scrollRef = useRef(null);
   const sessionId = useRef(`session-${Math.random().toString(36).substr(2, 9)}`);
+
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        await axios.get(API_BASE);
+        setIsConnected(true);
+      } catch (err) {
+        setIsConnected(false);
+        toast.error("Can't find the OG. Make sure the backend is running on port 5001.", {
+          duration: 5000,
+          icon: '⚠️'
+        });
+      }
+    };
+    checkConnection();
+  }, []);
 
   useEffect(() => {
     // Scroll to bottom on new messages
@@ -21,6 +38,11 @@ const ChatInterface = () => {
   const handleSend = async (e) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
+
+    if (isConnected === false) {
+      toast.error("Still no connection, homie. Lamar's off the grid.");
+      return;
+    }
 
     const userMsg = { role: 'user', content: input };
     setMessages(prev => [...prev, userMsg]);
@@ -59,10 +81,20 @@ const ChatInterface = () => {
         <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center border border-blue-500/30">
           <Shield size={24} className="text-blue-400" />
         </div>
-        <div>
+        <div className="flex-1">
           <h1 className="text-xl font-bold tracking-tight">Lamar Cole</h1>
           <p className="text-xs text-blue-400/80 uppercase tracking-widest font-semibold">Empathetic OG • 100% Real</p>
         </div>
+        {isConnected === false && (
+          <div className="px-3 py-1 bg-red-500/10 border border-red-500/50 rounded-full">
+            <p className="text-[10px] text-red-400 font-bold uppercase tracking-tighter">Offline</p>
+          </div>
+        )}
+        {isConnected === true && (
+          <div className="px-3 py-1 bg-green-500/10 border border-green-500/50 rounded-full">
+            <p className="text-[10px] text-green-400 font-bold uppercase tracking-tighter">Online</p>
+          </div>
+        )}
       </div>
 
       {/* Messages area */}

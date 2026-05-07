@@ -7,25 +7,32 @@ const chatService = require('./services/chatService');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5174',
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
 app.use(express.json());
 
 // MongoDB Connection with Fallback and better logging
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
       serverSelectionTimeoutMS: 5000,
     });
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    console.log(`✅ Street Cred: MongoDB Connected at ${conn.connection.host}`);
   } catch (err) {
-    console.error('MongoDB connection error:', err.message);
-    console.log('Running without persistent DB. History will not be saved.');
+    console.error('❌ MongoDB Connection Error:', err.message);
+    console.log('⚠️ Running in Street Mode: AI is active but history will not be saved locally.');
   }
 };
 
 connectDB();
+
+// Root API Route
+app.get('/api', (req, res) => {
+  res.json({ status: 'OG is alive', version: '1.0.0' });
+});
 
 // Health Check Endpoint
 app.get('/api/health', (req, res) => {
