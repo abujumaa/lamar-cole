@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, Shield, User, Ghost } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const API_BASE = 'http://localhost:5000/api';
 
@@ -33,9 +34,18 @@ const ChatInterface = () => {
       });
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
     } catch (err) {
+      toast.error("Network's trippin', homie. Lamar's offline for a sec.", {
+        icon: '🚫',
+        style: {
+          borderRadius: '12px',
+          background: '#18181b',
+          color: '#fff',
+          border: '1px solid #3f3f46'
+        }
+      });
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: "Lamar is taking a breather. Keep it 100 and try again in a minute, homie." 
+        content: "My bad, fam. The connection hit a snag. Re-up that message for me?" 
       }]);
     } finally {
       setIsLoading(false);
@@ -43,24 +53,29 @@ const ChatInterface = () => {
   };
 
   return (
-    <div className="w-full max-w-2xl bg-zinc-900/90 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[85vh] border border-zinc-800">
+    <div className="w-full max-w-2xl bg-zinc-950 rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[85vh] border border-zinc-800/50">
       {/* Header */}
-      <div className="p-6 bg-gradient-to-r from-[#003087] to-[#1e1e1e] text-white flex items-center gap-3 border-b border-zinc-800">
-        <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-md border border-white/10">
-          <Shield size={24} className="text-white" />
+      <div className="p-6 bg-gradient-to-r from-[#003087] to-zinc-950 text-white flex items-center gap-4 border-b border-zinc-800/50">
+        <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center border border-blue-500/30">
+          <Shield size={24} className="text-blue-400" />
         </div>
         <div>
           <h1 className="text-xl font-bold tracking-tight">Lamar Cole</h1>
-          <p className="text-xs opacity-70 uppercase tracking-widest font-medium">The OG who listens</p>
+          <p className="text-xs text-blue-400/80 uppercase tracking-widest font-semibold">Empathetic OG • 100% Real</p>
         </div>
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-[#121212]">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-zinc-950">
         {messages.length === 0 && (
-          <div className="text-center py-12 space-y-4">
-            <Ghost className="mx-auto text-[#003087] opacity-50" size={48} />
-            <p className="text-zinc-500 font-medium italic">"Spit it out, homie... I'm here for the real talk."</p>
+          <div className="text-center py-20 space-y-4">
+            <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center mx-auto border border-zinc-800">
+              <Ghost className="text-zinc-700" size={40} />
+            </div>
+            <div className="space-y-2">
+              <p className="text-zinc-400 font-medium text-lg">"Respect is earned, truth is spoken."</p>
+              <p className="text-zinc-600 text-sm">Spit it out, homie... I'm here for the real talk.</p>
+            </div>
           </div>
         )}
         
@@ -68,16 +83,16 @@ const ChatInterface = () => {
           {messages.map((msg, idx) => (
             <motion.div
               key={idx}
-              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              initial={{ opacity: 0, y: 10, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              <div className={`max-w-[85%] p-4 rounded-2xl shadow-lg ${
+              <div className={`max-w-[85%] p-4 rounded-2xl ${
                 msg.role === 'user' 
-                  ? 'bg-[#003087] text-white rounded-tr-none' 
-                  : 'bg-zinc-800 text-zinc-100 border border-zinc-700 rounded-tl-none'
+                  ? 'bg-blue-600 text-white rounded-tr-none shadow-blue-900/20 shadow-lg' 
+                  : 'bg-blue-900/20 text-zinc-100 border border-blue-500/20 rounded-tl-none'
               }`}>
-                <p className="leading-relaxed text-sm sm:text-base font-medium">{msg.content}</p>
+                <p className="leading-relaxed text-sm sm:text-base font-medium whitespace-pre-wrap">{msg.content}</p>
               </div>
             </motion.div>
           ))}
@@ -85,10 +100,10 @@ const ChatInterface = () => {
         
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-zinc-800 p-4 rounded-2xl border border-zinc-700 rounded-tl-none flex gap-1">
-              <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce"></span>
-              <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:0.2s]"></span>
-              <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+            <div className="bg-blue-900/20 p-4 rounded-2xl border border-blue-500/20 rounded-tl-none flex gap-1.5">
+              <span className="w-2 h-2 bg-blue-500/50 rounded-full animate-bounce"></span>
+              <span className="w-2 h-2 bg-blue-500/50 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+              <span className="w-2 h-2 bg-blue-500/50 rounded-full animate-bounce [animation-delay:0.4s]"></span>
             </div>
           </div>
         )}
@@ -96,17 +111,17 @@ const ChatInterface = () => {
       </div>
 
       {/* Input area */}
-      <form onSubmit={handleSend} className="p-6 bg-zinc-900 border-t border-zinc-800 flex gap-3">
+      <form onSubmit={handleSend} className="p-6 bg-zinc-900/50 border-t border-zinc-800/50 flex gap-3">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Spit it out, homie..."
-          className="flex-1 bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 text-sm text-zinc-100 focus:ring-2 focus:ring-[#003087]/50 outline-none transition-all placeholder:text-zinc-500"
+          placeholder="Keep it 100 with me..."
+          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-sm text-zinc-100 focus:ring-2 focus:ring-blue-500/40 outline-none transition-all placeholder:text-zinc-600"
         />
         <button
           type="submit"
           disabled={isLoading}
-          className="bg-[#003087] text-white p-3 rounded-2xl hover:bg-[#002060] transition-colors disabled:opacity-50 shadow-lg"
+          className="bg-blue-600 text-white px-6 rounded-2xl hover:bg-blue-500 transition-all disabled:opacity-50 shadow-lg shadow-blue-900/20 flex items-center justify-center"
         >
           <Send size={20} />
         </button>
@@ -116,3 +131,4 @@ const ChatInterface = () => {
 };
 
 export default ChatInterface;
+
