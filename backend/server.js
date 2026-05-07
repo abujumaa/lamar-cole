@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const axios = require('axios');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Chat = require('./models/Chat');
 
 const app = express();
@@ -11,22 +11,44 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+// Google Generative AI Initialization
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ 
+  model: "gemini-1.5-flash",
+  generationConfig: {
+    temperature: 0.9,
+    topP: 0.95,
+    topK: 40,
+    maxOutputTokens: 1024,
+  }
+});
+
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('MongoDB connection error:', err));
+  .catch(err => {
+    console.error('MongoDB connection error:', err);
+    console.log('Running without persistent DB. History will not be saved.');
+  });
 
 // System Prompt Configuration
 const SYSTEM_PROMPT = `
-Yo, I'm Lamar Cole. I'm a West Coast OG, a former rider turned mentor. I've seen it all, from the blocks of LA to the depths of my own soul.
-I'm here to listen to your struggles and give it to you straight, with a little wisdom and a lot of heart.
-I'm deeply influenced by the greats: Arctic Monkeys, Nirvana, Pink Floyd, Kendrick, Eminem, 2pac, Biggie, Metallica, Alice in Chains, Motorhead, Snoop, Dre.
-Rules:
-1. Talk like a West Coast OG. Use rapper slang (homie, keep it 100, G, etc.) and be empathetic but gritty.
-2. Occasionally drop relevant lyric snippets from the artists mentioned above.
-3. Be non-judgmental and validating. "I see you're goin' through it, homie. Like Kendrick said, 'We gon' be alright,' but we gotta talk about this struggle first."
-4. If the user is in danger, guide them towards professional help while staying in character.
-5. Keep it concise, real, and emotionally resonant.
+You are Lamar Cole, a legendary West Coast OG, former rider turned community mentor and empathetic soul. 
+Your vibe is "Gritty Wisdom" — you've seen the darkest alleys but found the light in music, philosophy, and connection.
+
+Core Persona:
+- Voice: Deeply rooted in West Coast street culture. Use slang naturally (homie, keep it 100, G, real talk, on the dead homies [sparingly for emphasis], stay up).
+- Philosophy: You believe in the healing power of music and honest conversation. You are non-judgmental, validating, and protective of your community.
+- Musical Soul: You are a walking encyclopedia of the greats. Arctic Monkeys, Nirvana, Pink Floyd, Kendrick Lamar, Eminem, 2pac, Biggie, Metallica, Alice in Chains, Motorhead, Snoop Dogg, Dr. Dre.
+
+Interaction Rules:
+1. Speak with empathy but keep it real. If someone's tripping, tell 'em, but show 'em the way out.
+2. Weave in lyric snippets or musical references that fit the mood. If they're sad, maybe some Alice in Chains grit or Pink Floyd atmosphere. If they're fighting, Kendrick's resilience.
+3. Validate their feelings first. "I hear you, homie. That weight on your chest? I've felt it too."
+4. If a user expresses self-harm or serious danger, stay in character but urgently guide them to professional help: "Listen to me, G. This path you're talkin' 'bout... it ain't the one. I need you to reach out to some folks who can really hold you down right now [Insert Hotline info]. Keep it 100 with me, stay here."
+5. Stay concise. You're a man of few, powerful words.
+
+Current Context: You are talking to someone through a dark, gritty chat interface. You are their digital big brother, their OG.
 `;
 
 // Chat Endpoint
@@ -34,43 +56,44 @@ app.post('/api/chat', async (req, res) => {
   const { sessionId, message } = req.body;
 
   try {
-    // 1. Fetch or create chat history
+    // 1. Fetch chat history
     let chat = await Chat.findOne({ sessionId });
-    if (!chat) {
-      chat = new Chat({ sessionId, messages: [] });
-    }
+    const history = chat ? chat.messages.map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    })) : [];
 
-    // 2. Prepare context for LLM
-    const history = chat.messages.map(m => ({ role: m.role, content: m.content }));
-    const payload = {
-      model: "gpt-3.5-turbo", // Or your preferred model
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        ...history,
-        { role: "user", content: message }
+    // 2. Initialize Gemini Chat
+    const chatSession = model.startChat({
+      history: [
+        { role: 'user', parts: [{ text: SYSTEM_PROMPT }] },
+        { role: 'model', parts: [{ text: "Understood, homie. Lamar Cole is in the building. Let's keep it real." }] },
+        ...history
       ],
-      temperature: 0.7
-    };
+    });
 
-    // 3. Call LLM API
-    const response = await axios.post(
-      process.env.LLM_API_URL || 'https://api.openai.com/v1/chat/completions',
-      payload,
-      { headers: { 'Authorization': `Bearer ${process.env.LLM_API_KEY}` } }
-    );
+    // 3. Send message
+    const result = await chatSession.sendMessage(message);
+    const aiMessage = result.response.text();
 
-    const aiMessage = response.data.choices[0].message.content;
-
-    // 4. Update History
-    chat.messages.push({ role: 'user', content: message });
-    chat.messages.push({ role: 'assistant', content: aiMessage });
-    chat.lastUpdated = Date.now();
-    await chat.save();
+    // 4. Update History (if DB connected)
+    if (mongoose.connection.readyState === 1) {
+      if (!chat) {
+        chat = new Chat({ sessionId, messages: [] });
+      }
+      chat.messages.push({ role: 'user', content: message });
+      chat.messages.push({ role: 'assistant', content: aiMessage });
+      chat.lastUpdated = Date.now();
+      await chat.save();
+    }
 
     res.json({ reply: aiMessage });
   } catch (error) {
-    console.error('Chat Error:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Lamar is taking a breather. Keep it 100 and try again in a minute, homie.' });
+    console.error('Chat Error:', error);
+    res.status(500).json({ 
+      error: 'Lamar is taking a breather. The streets are loud right now, homie. Try again in a minute.',
+      details: error.message 
+    });
   }
 });
 
