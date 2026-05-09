@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
   ? 'http://localhost:5001/api' 
   : window.location.hostname.includes('loca.lt')
-    ? 'https://lamar-api-999.loca.lt/api'
+    ? 'https://lamar-api-999-v2.loca.lt/api'
     : `http://${window.location.hostname}:5001/api`;
 
 const ChatInterface = () => {
