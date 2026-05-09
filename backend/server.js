@@ -4,13 +4,14 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const Chat = require('./models/Chat');
 const chatService = require('./services/chatService');
+const { logActivity } = require('./services/loggingService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors({
   origin: 'http://localhost:5174',
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
 app.use(express.json());
@@ -67,7 +68,27 @@ app.get('/api/sessions', async (req, res) => {
   }
 });
 
-// ... (Soft Delete Chat Session remains same)
+// Soft Delete Chat Session
+app.delete('/api/chat/:sessionId', async (req, res) => {
+  const { sessionId } = req.params;
+  try {
+    const result = await Chat.findOneAndUpdate(
+      { sessionId: sessionId },
+      { isDeleted: true },
+      { new: true }
+    );
+    if (!result) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    
+    await logActivity('SESSION_CLEARED', sessionId);
+    res.json({ message: 'Session cleared from view, but preserved in logs.' });
+  } catch (error) {
+    console.error('Soft Delete Error:', error);
+    await logActivity('SYSTEM_ERROR', sessionId, { context: 'soft_delete', error: error.message });
+    res.status(500).json({ error: 'Failed to clear session', details: error.message });
+  }
+});
 
 // Chat Endpoint
 app.post('/api/chat', async (req, res) => {
@@ -91,6 +112,7 @@ app.post('/api/chat', async (req, res) => {
     res.json({ reply: aiMessage });
   } catch (error) {
     console.error('Chat Error:', error);
+    await logActivity('SYSTEM_ERROR', sessionId, { context: 'chat_endpoint', error: error.message });
     res.status(500).json({ 
       error: 'Lamar is taking a breather. The streets are loud right now, homie. Try again in a minute.',
       details: error.message 
