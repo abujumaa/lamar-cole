@@ -1,6 +1,5 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Chat = require('../models/Chat');
-const { logActivity } = require('./loggingService');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ 
@@ -52,27 +51,17 @@ const getChatResponse = async (sessionId, message) => {
   const result = await chatSession.sendMessage(message);
   const aiMessage = result.response.text();
 
-  // 4. Update History and Log Activity
+  // 4. Update History
   const mongoose = require('mongoose');
   if (mongoose.connection.readyState === 1) {
-    let isNewSession = false;
     if (!chat) {
       chat = new Chat({ sessionId, messages: [] });
-      isNewSession = true;
     }
     
     chat.messages.push({ role: 'user', content: message });
     chat.messages.push({ role: 'assistant', content: aiMessage });
     chat.lastUpdated = Date.now();
     await chat.save();
-
-    if (isNewSession) {
-      await logActivity('SESSION_CREATED', sessionId);
-    }
-    
-    // Log individual messages for flat log management
-    await logActivity('CHAT_MESSAGE', sessionId, { role: 'user', content: message });
-    await logActivity('CHAT_MESSAGE', sessionId, { role: 'assistant', content: aiMessage });
   }
 
   return aiMessage;
@@ -93,11 +82,9 @@ const generateTitle = async (messages) => {
     const result = await titleModel.generateContent(prompt);
     const title = result.response.text().trim().replace(/["'#*.]/g, '');
     
-    await logActivity('TITLE_GENERATED', null, { title });
     return title;
   } catch (error) {
     console.error('Title Generation Error:', error);
-    await logActivity('SYSTEM_ERROR', null, { context: 'title_generation', error: error.message });
     return 'Old Talk';
   }
 };
