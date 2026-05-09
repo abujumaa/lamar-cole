@@ -68,19 +68,23 @@ app.get('/api/sessions', async (req, res) => {
 
 // Soft Delete Chat Session
 app.delete('/api/chat/:sessionId', async (req, res) => {
+  const { sessionId } = req.params;
+  console.log(`🗑️ Attempting soft delete for session: ${sessionId}`);
   try {
     const result = await Chat.findOneAndUpdate(
-      { sessionId: req.params.sessionId },
+      { sessionId: sessionId },
       { isDeleted: true },
       { new: true }
     );
     if (!result) {
+      console.log(`⚠️ Session ${sessionId} not found for soft delete.`);
       return res.status(404).json({ error: 'Session not found' });
     }
+    console.log(`✅ Session ${sessionId} marked as deleted.`);
     res.json({ message: 'Session cleared from view, but preserved in logs.' });
   } catch (error) {
-    console.error('Soft Delete Error:', error);
-    res.status(500).json({ error: 'Failed to clear session' });
+    console.error('❌ Soft Delete Error:', error);
+    res.status(500).json({ error: 'Failed to clear session', details: error.message });
   }
 });
 
