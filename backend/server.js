@@ -2,30 +2,38 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const Chat = require('./models/Chat');
 const chatService = require('./services/chatService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5174',
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
 app.use(express.json());
 
 // MongoDB Connection with Fallback and better logging
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
       serverSelectionTimeoutMS: 5000,
     });
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
+    console.log(`✅ Street Cred: MongoDB Connected at ${conn.connection.host}`);
   } catch (err) {
-    console.error('MongoDB connection error:', err.message);
-    console.log('Running without persistent DB. History will not be saved.');
+    console.error('❌ MongoDB Connection Error:', err.message);
+    console.log('⚠️ Running in Street Mode: AI is active but history will not be saved locally.');
   }
 };
 
 connectDB();
+
+// Root API Route
+app.get('/api', (req, res) => {
+  res.json({ status: 'OG is alive', version: '1.0.0' });
+});
 
 // Health Check Endpoint
 app.get('/api/health', (req, res) => {
@@ -35,6 +43,49 @@ app.get('/api/health', (req, res) => {
     dbState: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
     env: process.env.NODE_ENV || 'development'
   });
+});
+
+// Get All Chat Sessions (Active Only)
+app.get('/api/sessions', async (req, res) => {
+  try {
+    const sessions = await Chat.find({ isDeleted: { $ne: true } }, 'sessionId lastUpdated messages')
+      .sort({ lastUpdated: -1 });
+    
+    // Map to include a preview of the last message and message count
+    const sessionList = sessions.map(s => ({
+      sessionId: s.sessionId,
+      lastUpdated: s.lastUpdated,
+      messageCount: s.messages.length,
+      preview: s.messages.length > 0 ? s.messages[s.messages.length - 1].content.substring(0, 50) + '...' : 'No messages yet'
+    }));
+    
+    res.json(sessionList);
+  } catch (error) {
+    console.error('Fetch Sessions Error:', error);
+    res.status(500).json({ error: 'Failed to fetch sessions' });
+  }
+});
+
+// Soft Delete Chat Session
+app.delete('/api/chat/:sessionId', async (req, res) => {
+  const { sessionId } = req.params;
+  console.log(`🗑️ Attempting soft delete for session: ${sessionId}`);
+  try {
+    const result = await Chat.findOneAndUpdate(
+      { sessionId: sessionId },
+      { isDeleted: true },
+      { new: true }
+    );
+    if (!result) {
+      console.log(`⚠️ Session ${sessionId} not found for soft delete.`);
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    console.log(`✅ Session ${sessionId} marked as deleted.`);
+    res.json({ message: 'Session cleared from view, but preserved in logs.' });
+  } catch (error) {
+    console.error('❌ Soft Delete Error:', error);
+    res.status(500).json({ error: 'Failed to clear session', details: error.message });
+  }
 });
 
 // Chat Endpoint
