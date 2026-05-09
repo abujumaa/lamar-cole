@@ -187,6 +187,15 @@ const ChatInterface = () => {
               <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Empathetic OG</p>
             </div>
           </div>
+          
+          <button 
+            onClick={(e) => deleteSession(e, currentSessionId)}
+            className="flex items-center gap-2 px-4 py-2 hover:bg-red-500/10 text-zinc-500 hover:text-red-500 rounded-xl transition-all border border-transparent hover:border-red-500/20"
+            title="Clear current talk"
+          >
+            <Trash2 size={18} />
+            <span className="hidden sm:inline text-sm font-bold uppercase tracking-wider">Clear Chat</span>
+          </button>
         </div>
 
         {/* Messages */}

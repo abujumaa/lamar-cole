@@ -9,7 +9,8 @@ const MessageSchema = new mongoose.Schema({
 const ChatSchema = new mongoose.Schema({
   sessionId: { type: String, required: true, unique: true },
   messages: [MessageSchema],
-  lastUpdated: { type: Date, default: Date.now }
+  lastUpdated: { type: Date, default: Date.now },
+  isDeleted: { type: Boolean, default: false }
 });
 
 module.exports = mongoose.model('Chat', ChatSchema);

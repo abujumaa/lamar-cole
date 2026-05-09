@@ -45,10 +45,10 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Get All Chat Sessions
+// Get All Chat Sessions (Active Only)
 app.get('/api/sessions', async (req, res) => {
   try {
-    const sessions = await Chat.find({}, 'sessionId lastUpdated messages')
+    const sessions = await Chat.find({ isDeleted: { $ne: true } }, 'sessionId lastUpdated messages')
       .sort({ lastUpdated: -1 });
     
     // Map to include a preview of the last message and message count
@@ -66,17 +66,21 @@ app.get('/api/sessions', async (req, res) => {
   }
 });
 
-// Delete Chat Session
+// Soft Delete Chat Session
 app.delete('/api/chat/:sessionId', async (req, res) => {
   try {
-    const result = await Chat.findOneAndDelete({ sessionId: req.params.sessionId });
+    const result = await Chat.findOneAndUpdate(
+      { sessionId: req.params.sessionId },
+      { isDeleted: true },
+      { new: true }
+    );
     if (!result) {
       return res.status(404).json({ error: 'Session not found' });
     }
-    res.json({ message: 'Session deleted successfully' });
+    res.json({ message: 'Session cleared from view, but preserved in logs.' });
   } catch (error) {
-    console.error('Delete Session Error:', error);
-    res.status(500).json({ error: 'Failed to delete session' });
+    console.error('Soft Delete Error:', error);
+    res.status(500).json({ error: 'Failed to clear session' });
   }
 });
 
