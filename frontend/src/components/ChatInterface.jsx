@@ -6,7 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-const API_BASE = 'http://localhost:5001/api';
+const API_BASE = 'http://192.168.100.51:5001/api';
 
 const ChatInterface = () => {
   const [messages, setMessages] = useState([]);
