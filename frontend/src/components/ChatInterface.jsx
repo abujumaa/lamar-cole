@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Shield, User, Ghost } from 'lucide-react';
+import { Send, Shield, User, Ghost, Trash2, MessageSquare, Plus, Menu, X } from 'lucide-react';
+import RileyIcon from './RileyIcon';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -10,39 +11,73 @@ const ChatInterface = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isConnected, setIsConnected] = useState(null);
+  const [sessions, setSessions] = useState([]);
+  const [currentSessionId, setCurrentSessionId] = useState(`session-${Math.random().toString(36).substr(2, 9)}`);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
+  
   const scrollRef = useRef(null);
-  const sessionId = useRef(`session-${Math.random().toString(36).substr(2, 9)}`);
 
   useEffect(() => {
-    const checkConnection = async () => {
-      try {
-        await axios.get(API_BASE);
-        setIsConnected(true);
-      } catch (err) {
-        setIsConnected(false);
-        toast.error("Can't find the OG. Make sure the backend is running on port 5001.", {
-          duration: 5000,
-          icon: '⚠️'
-        });
-      }
+    fetchSessions();
+    const handleResize = () => {
+      if (window.innerWidth > 1024) setIsSidebarOpen(true);
+      else setIsSidebarOpen(false);
     };
-    checkConnection();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
-    // Scroll to bottom on new messages
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
+
+  const fetchSessions = async () => {
+    try {
+      const { data } = await axios.get(`${API_BASE}/sessions`);
+      setSessions(data);
+    } catch (err) {
+      console.error('Failed to fetch sessions');
+    }
+  };
+
+  const loadSession = async (sessionId) => {
+    setIsLoading(true);
+    setCurrentSessionId(sessionId);
+    try {
+      const { data } = await axios.get(`${API_BASE}/history/${sessionId}`);
+      setMessages(data);
+      if (window.innerWidth <= 1024) setIsSidebarOpen(false);
+    } catch (err) {
+      toast.error("Couldn't pull up the old talk, homie.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const deleteSession = async (e, sessionId) => {
+    e.stopPropagation();
+    try {
+      await axios.delete(`${API_BASE}/chat/${sessionId}`);
+      toast.success("Memory's wiped, G.");
+      fetchSessions();
+      if (currentSessionId === sessionId) {
+        setMessages([]);
+        setCurrentSessionId(`session-${Math.random().toString(36).substr(2, 9)}`);
+      }
+    } catch (err) {
+      toast.error("Couldn't clear the block.");
+    }
+  };
+
+  const startNewChat = () => {
+    setMessages([]);
+    setCurrentSessionId(`session-${Math.random().toString(36).substr(2, 9)}`);
+    if (window.innerWidth <= 1024) setIsSidebarOpen(false);
+  };
 
   const handleSend = async (e) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
-
-    if (isConnected === false) {
-      toast.error("Still no connection, homie. Lamar's off the grid.");
-      return;
-    }
 
     const userMsg = { role: 'user', content: input };
     setMessages(prev => [...prev, userMsg]);
@@ -51,20 +86,13 @@ const ChatInterface = () => {
 
     try {
       const { data } = await axios.post(`${API_BASE}/chat`, {
-        sessionId: sessionId.current,
+        sessionId: currentSessionId,
         message: input
       });
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+      fetchSessions(); // Refresh sidebar
     } catch (err) {
-      toast.error("Network's trippin', homie. Lamar's offline for a sec.", {
-        icon: '🚫',
-        style: {
-          borderRadius: '12px',
-          background: '#18181b',
-          color: '#fff',
-          border: '1px solid #3f3f46'
-        }
-      });
+      toast.error("Network's trippin', homie.");
       setMessages(prev => [...prev, { 
         role: 'assistant', 
         content: "My bad, fam. The connection hit a snag. Re-up that message for me?" 
@@ -75,92 +103,153 @@ const ChatInterface = () => {
   };
 
   return (
-    <div className="w-full max-w-2xl bg-zinc-950 rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[85vh] border border-zinc-800/50">
-      {/* Header */}
-      <div className="p-6 bg-gradient-to-r from-[#003087] to-zinc-950 text-white flex items-center gap-4 border-b border-zinc-800/50">
-        <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center border border-blue-500/30">
-          <Shield size={24} className="text-blue-400" />
+    <div className="flex h-full w-full bg-zinc-950 overflow-hidden text-zinc-100 font-sans">
+      {/* Sidebar */}
+      <motion.div 
+        initial={false}
+        animate={{ 
+          width: isSidebarOpen ? '320px' : '0px',
+          minWidth: isSidebarOpen ? '320px' : '0px',
+          opacity: isSidebarOpen ? 1 : 0 
+        }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        className="bg-zinc-900 border-r border-zinc-800 flex flex-col z-20 overflow-hidden"
+      >
+        <div className="p-6 border-b border-zinc-800 flex justify-between items-center whitespace-nowrap">
+          <h2 className="font-bold text-lg tracking-tight flex items-center gap-2">
+            <MessageSquare size={20} className="text-[#003087]" />
+            Old Talks
+          </h2>
+          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 hover:bg-zinc-800 rounded-lg">
+            <X size={20} />
+          </button>
         </div>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold tracking-tight">Lamar Cole</h1>
-          <p className="text-xs text-blue-400/80 uppercase tracking-widest font-semibold">Empathetic OG • 100% Real</p>
-        </div>
-        {isConnected === false && (
-          <div className="px-3 py-1 bg-red-500/10 border border-red-500/50 rounded-full">
-            <p className="text-[10px] text-red-400 font-bold uppercase tracking-tighter">Offline</p>
-          </div>
-        )}
-        {isConnected === true && (
-          <div className="px-3 py-1 bg-green-500/10 border border-green-500/50 rounded-full">
-            <p className="text-[10px] text-green-400 font-bold uppercase tracking-tighter">Online</p>
-          </div>
-        )}
-      </div>
-
-      {/* Messages area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-zinc-950">
-        {messages.length === 0 && (
-          <div className="text-center py-20 space-y-4">
-            <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center mx-auto border border-zinc-800">
-              <Ghost className="text-zinc-700" size={40} />
-            </div>
-            <div className="space-y-2">
-              <p className="text-zinc-400 font-medium text-lg">"Respect is earned, truth is spoken."</p>
-              <p className="text-zinc-600 text-sm">Spit it out, homie... I'm here for the real talk.</p>
-            </div>
-          </div>
-        )}
         
-        <AnimatePresence>
-          {messages.map((msg, idx) => (
-            <motion.div
-              key={idx}
-              initial={{ opacity: 0, y: 10, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+        <div className="p-4 whitespace-nowrap">
+          <button 
+            onClick={startNewChat}
+            className="w-full flex items-center justify-center gap-2 bg-[#003087]/20 border border-[#003087]/40 hover:bg-[#003087]/30 py-3 rounded-xl transition-all text-sm font-medium"
+          >
+            <Plus size={18} /> New Conversation
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 space-y-2 custom-scrollbar pb-6 whitespace-nowrap">
+          {sessions.map((s) => (
+            <div 
+              key={s.sessionId}
+              onClick={() => loadSession(s.sessionId)}
+              className={`group p-4 rounded-xl cursor-pointer transition-all border ${
+                currentSessionId === s.sessionId 
+                  ? 'bg-zinc-800 border-zinc-700 shadow-lg' 
+                  : 'hover:bg-zinc-800/50 border-transparent'
+              }`}
             >
-              <div className={`max-w-[85%] p-4 rounded-2xl ${
-                msg.role === 'user' 
-                  ? 'bg-blue-600 text-white rounded-tr-none shadow-blue-900/20 shadow-lg' 
-                  : 'bg-blue-900/20 text-zinc-100 border border-blue-500/20 rounded-tl-none'
-              }`}>
-                <p className="leading-relaxed text-sm sm:text-base font-medium whitespace-pre-wrap">{msg.content}</p>
+              <div className="flex justify-between items-start gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-zinc-500 font-medium mb-1">
+                    {new Date(s.lastUpdated).toLocaleDateString()}
+                  </p>
+                  <p className="text-sm font-medium truncate text-zinc-300">
+                    {s.preview || "No content"}
+                  </p>
+                </div>
+                <button 
+                  onClick={(e) => deleteSession(e, s.sessionId)}
+                  className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-500/10 hover:text-red-500 rounded-lg transition-all"
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
-            </motion.div>
+            </div>
           ))}
-        </AnimatePresence>
-        
-        {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-blue-900/20 p-4 rounded-2xl border border-blue-500/20 rounded-tl-none flex gap-1.5">
-              <span className="w-2 h-2 bg-blue-500/50 rounded-full animate-bounce"></span>
-              <span className="w-2 h-2 bg-blue-500/50 rounded-full animate-bounce [animation-delay:0.2s]"></span>
-              <span className="w-2 h-2 bg-blue-500/50 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+        </div>
+      </motion.div>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col relative h-full min-w-0">
+        {/* Header */}
+        <div className="p-6 bg-zinc-950/80 backdrop-blur-md border-b border-zinc-900 flex items-center justify-between z-10">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-3 hover:bg-zinc-900 rounded-xl transition-colors flex items-center gap-2 text-zinc-400 hover:text-white"
+              title="Toggle Old Talks"
+            >
+              <Menu size={24} />
+              <span className="hidden md:inline text-sm font-bold uppercase tracking-wider">History</span>
+            </button>
+            <div className="w-12 h-12 bg-zinc-900 rounded-2xl flex items-center justify-center border border-zinc-800 shadow-inner">
+              <RileyIcon className="w-10 h-10" color="white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">Lamar Cole</h1>
+              <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">Empathetic OG</p>
             </div>
           </div>
-        )}
-        <div ref={scrollRef} />
-      </div>
+        </div>
 
-      {/* Input area */}
-      <form onSubmit={handleSend} className="p-6 bg-zinc-900/50 border-t border-zinc-800/50 flex gap-3">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Keep it 100 with me..."
-          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4 text-sm text-zinc-100 focus:ring-2 focus:ring-blue-500/40 outline-none transition-all placeholder:text-zinc-600"
-        />
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="bg-blue-600 text-white px-6 rounded-2xl hover:bg-blue-500 transition-all disabled:opacity-50 shadow-lg shadow-blue-900/20 flex items-center justify-center"
-        >
-          <Send size={20} />
-        </button>
-      </form>
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+          {messages.length === 0 && !isLoading && (
+            <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-40">
+              <Ghost size={64} className="text-blue-500" />
+              <p className="text-lg font-medium italic">"Spit it out, homie... I'm here for the real talk."</p>
+            </div>
+          )}
+          
+          <AnimatePresence>
+            {messages.map((msg, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div className={`max-w-[75%] p-5 rounded-2xl shadow-xl ${
+                  msg.role === 'user' 
+                    ? 'bg-[#003087] text-white rounded-tr-none' 
+                    : 'bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-tl-none'
+                }`}>
+                  <p className="leading-relaxed text-sm md:text-base font-medium whitespace-pre-wrap">{msg.content}</p>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+          
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800 flex gap-1.5">
+                <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></span>
+                <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+              </div>
+            </div>
+          )}
+          <div ref={scrollRef} />
+        </div>
+
+        {/* Input */}
+        <form onSubmit={handleSend} className="p-8 bg-zinc-950">
+          <div className="max-w-4xl mx-auto flex gap-4">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Spit it out, homie..."
+              className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl px-6 py-4 text-zinc-100 focus:ring-2 focus:ring-blue-600/50 outline-none transition-all placeholder:text-zinc-600 font-medium"
+            />
+            <button
+              type="submit"
+              disabled={isLoading || !input.trim()}
+              className="bg-[#003087] text-white p-4 rounded-2xl hover:bg-blue-700 transition-all disabled:opacity-50 disabled:hover:bg-[#003087] shadow-lg shadow-blue-900/20"
+            >
+              <Send size={24} />
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };
 
 export default ChatInterface;
-

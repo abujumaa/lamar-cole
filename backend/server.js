@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const Chat = require('./models/Chat');
 const chatService = require('./services/chatService');
 
 const app = express();
@@ -42,6 +43,41 @@ app.get('/api/health', (req, res) => {
     dbState: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
     env: process.env.NODE_ENV || 'development'
   });
+});
+
+// Get All Chat Sessions
+app.get('/api/sessions', async (req, res) => {
+  try {
+    const sessions = await Chat.find({}, 'sessionId lastUpdated messages')
+      .sort({ lastUpdated: -1 });
+    
+    // Map to include a preview of the last message and message count
+    const sessionList = sessions.map(s => ({
+      sessionId: s.sessionId,
+      lastUpdated: s.lastUpdated,
+      messageCount: s.messages.length,
+      preview: s.messages.length > 0 ? s.messages[s.messages.length - 1].content.substring(0, 50) + '...' : 'No messages yet'
+    }));
+    
+    res.json(sessionList);
+  } catch (error) {
+    console.error('Fetch Sessions Error:', error);
+    res.status(500).json({ error: 'Failed to fetch sessions' });
+  }
+});
+
+// Delete Chat Session
+app.delete('/api/chat/:sessionId', async (req, res) => {
+  try {
+    const result = await Chat.findOneAndDelete({ sessionId: req.params.sessionId });
+    if (!result) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    res.json({ message: 'Session deleted successfully' });
+  } catch (error) {
+    console.error('Delete Session Error:', error);
+    res.status(500).json({ error: 'Failed to delete session' });
+  }
 });
 
 // Chat Endpoint
