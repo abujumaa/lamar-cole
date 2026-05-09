@@ -58,14 +58,23 @@ const ChatInterface = () => {
     e.stopPropagation();
     try {
       await axios.delete(`${API_BASE}/chat/${sessionId}`);
-      toast.success("Memory's wiped, G.");
+      toast.success("Memory's cleared, G.");
       fetchSessions();
       if (currentSessionId === sessionId) {
         setMessages([]);
         setCurrentSessionId(`session-${Math.random().toString(36).substr(2, 9)}`);
       }
     } catch (err) {
-      toast.error("Couldn't clear the block.");
+      if (err.response?.status === 404) {
+        // If session not found in DB, just reset local state if it's the current one
+        if (currentSessionId === sessionId) {
+          setMessages([]);
+          setCurrentSessionId(`session-${Math.random().toString(36).substr(2, 9)}`);
+          toast.success("Clean slate, homie.");
+        }
+      } else {
+        toast.error("Couldn't clear the block.");
+      }
     }
   };
 
