@@ -80,10 +80,11 @@ app.post('/api/chat', async (req, res) => {
   try {
     const aiMessage = await chatService.getChatResponse(sessionId, message);
     
-    // Auto-name the session if it's the first message
+    // Auto-name the session if it's the first exchange
     const chat = await Chat.findOne({ sessionId });
-    if (chat && (chat.title === 'New Conversation' || !chat.title) && chat.messages.length <= 2) {
-      chat.title = message.substring(0, 30) + (message.length > 30 ? '...' : '');
+    if (chat && (chat.title === 'New Conversation' || !chat.title) && chat.messages.length >= 2 && chat.messages.length <= 4) {
+      const generatedTitle = await chatService.generateTitle(chat.messages);
+      chat.title = generatedTitle;
       await chat.save();
     }
 

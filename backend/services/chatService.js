@@ -71,7 +71,23 @@ const getHistory = async (sessionId) => {
   return chat ? chat.messages : [];
 };
 
+const generateTitle = async (messages) => {
+  try {
+    const historyText = messages.slice(0, 4).map(m => `${m.role}: ${m.content}`).join('\n');
+    const titleModel = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+    
+    const prompt = `Based on the following short conversation, generate a concise, gritty 3-4 word title that captures the main subject. Do not use quotes, punctuation, or filler words. Just the title.\n\n${historyText}`;
+    
+    const result = await titleModel.generateContent(prompt);
+    return result.response.text().trim().replace(/["']/g, '');
+  } catch (error) {
+    console.error('Title Generation Error:', error);
+    return 'Old Talk';
+  }
+};
+
 module.exports = {
   getChatResponse,
-  getHistory
+  getHistory,
+  generateTitle
 };
