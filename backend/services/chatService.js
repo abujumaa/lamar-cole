@@ -11,7 +11,7 @@ const queue = new PQueue({ concurrency: 5 });
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ 
-  model: "gemini-1.5-flash", // Use 1.5-flash for better stability
+  model: "gemini-pro", // Reverting to stable gemini-pro
   generationConfig: {
     temperature: 0.85,
     topP: 0.95,
