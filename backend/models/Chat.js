@@ -8,6 +8,7 @@ const MessageSchema = new mongoose.Schema({
 
 const ChatSchema = new mongoose.Schema({
   sessionId: { type: String, required: true, unique: true },
+  title: { type: String, default: 'New Conversation' },
   messages: [MessageSchema],
   lastUpdated: { type: Date, default: Date.now },
   isDeleted: { type: Boolean, default: false }
