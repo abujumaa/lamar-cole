@@ -8,7 +8,7 @@ const model = genAI.getGenerativeModel({
     temperature: 0.85,
     topP: 0.95,
     topK: 40,
-    maxOutputTokens: 1024,
+    maxOutputTokens: 4096,
   }
 });
 
@@ -49,7 +49,14 @@ const getChatResponse = async (sessionId, message) => {
 
   // 3. Send message
   const result = await chatSession.sendMessage(message);
-  const aiMessage = result.response.text();
+  const response = result.response;
+  const aiMessage = response.text();
+  
+  // Log if the response was truncated
+  const candidate = response.candidates[0];
+  if (candidate.finishReason !== 'STOP') {
+    console.warn(`⚠️ AI response finished with reason: ${candidate.finishReason}. Session: ${sessionId}`);
+  }
 
   // 4. Update History
   const mongoose = require('mongoose');
