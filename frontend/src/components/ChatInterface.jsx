@@ -184,9 +184,6 @@ const ChatInterface = () => {
                   <p className="text-sm font-bold truncate text-zinc-200">
                     {s.title}
                   </p>
-                  <p className="text-xs text-zinc-500 truncate italic">
-                    {s.preview}
-                  </p>
                 </div>
                 <button 
                   onClick={(e) => deleteSession(e, s.sessionId)}
